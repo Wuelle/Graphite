@@ -6,6 +6,8 @@ const GRAPHITE_INDEXED_DB_VERSION = 2;
 const GRAPHITE_INDEXED_DB_NAME = "graphite-indexed-db";
 const GRAPHITE_AUTO_SAVE_STORE = "auto-save-documents";
 const GRAPHITE_AUTO_SAVE_ORDER_KEY = "auto-save-documents-order";
+const GRAPHITE_ACTIVE_DOCUMENT_KEY = "active-document";
+
 
 const databaseConnection: Promise<IDBDatabase> = new Promise((resolve) => {
 	const dbOpenRequest = indexedDB.open(GRAPHITE_INDEXED_DB_NAME, GRAPHITE_INDEXED_DB_VERSION);
@@ -28,11 +30,12 @@ const databaseConnection: Promise<IDBDatabase> = new Promise((resolve) => {
 	dbOpenRequest.onsuccess = (): void => {
 		resolve(dbOpenRequest.result);
 	};
-});
+}); 	
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAutoSaveManager(editor: EditorState, documents: DocumentsState) {
 	const openAutoSavedDocuments = async (): Promise<void> => {
+		// request all saved documents from indexedDB
 		const db = await databaseConnection;
 		const transaction = db.transaction(GRAPHITE_AUTO_SAVE_STORE, "readonly");
 		const request = transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).getAll();
@@ -41,6 +44,7 @@ export function createAutoSaveManager(editor: EditorState, documents: DocumentsS
 			request.onsuccess = (): void => {
 				const previouslySavedDocuments: TriggerIndexedDbWriteDocument[] = request.result;
 
+				// Open the documents in the correct order
 				const documentOrder: string[] = JSON.parse(window.localStorage.getItem(GRAPHITE_AUTO_SAVE_ORDER_KEY) || "[]");
 				const orderedSavedDocuments = documentOrder
 					.map((id) => previouslySavedDocuments.find((autoSave) => autoSave.details.id === id))
@@ -54,6 +58,11 @@ export function createAutoSaveManager(editor: EditorState, documents: DocumentsS
 						removeDocument(doc.details.id);
 					}
 				});
+
+				// Focus the last active document
+				const activeDocumentID: string = JSON.parse(window.localStorage.getItem(GRAPHITE_ACTIVE_DOCUMENT_KEY) || "0");
+				editor.instance.select_document(BigInt(activeDocumentID));
+
 				resolve(undefined);
 			};
 		});
@@ -77,6 +86,7 @@ export function createAutoSaveManager(editor: EditorState, documents: DocumentsS
 		const transaction = db.transaction(GRAPHITE_AUTO_SAVE_STORE, "readwrite");
 		transaction.objectStore(GRAPHITE_AUTO_SAVE_STORE).put(autoSaveDocument);
 		storeDocumentOrder();
+	    window.localStorage.setItem(GRAPHITE_ACTIVE_DOCUMENT_KEY, JSON.stringify(documents.documents[documents.activeDocumentIndex].toString()));
 	});
 
 	editor.dispatcher.subscribeJsMessage(TriggerIndexedDbRemoveDocument, async (removeAutoSaveDocument) => {

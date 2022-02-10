@@ -84,6 +84,7 @@ export function createDocumentsState(editor: EditorState, dialogState: DialogSta
 		// Assume we receive a correct document id
 		const activeId = state.documents.findIndex((doc) => doc.id === updateActiveDocument.document_id);
 		state.activeDocumentIndex = activeId;
+		// saveActiveDocumentID(updateActiveDocument);
 	});
 
 	editor.dispatcher.subscribeJsMessage(DisplayConfirmationToCloseDocument, (displayConfirmationToCloseDocument) => {
