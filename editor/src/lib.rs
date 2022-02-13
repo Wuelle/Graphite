@@ -23,6 +23,13 @@ pub use misc::EditorError;
 use communication::dispatcher::Dispatcher;
 use message_prelude::*;
 
+#[cfg(feature = "debug_backend")]
+use std::net::{TcpListener, ToSocketAddr};
+#[cfg(feature = "debug_backend")]
+use std::thread::spawn;
+#[cfg(feature = "debug_backend")]
+use tungstenite::accept;
+
 // TODO: serialize with serde to save the current editor state
 pub struct Editor {
 	dispatcher: Dispatcher,
@@ -33,6 +40,23 @@ impl Editor {
 	/// Remember to provide a random seed with `editor::communication::set_uuid_seed(seed)` before any editors can be used.
 	pub fn new() -> Self {
 		Self { dispatcher: Dispatcher::new() }
+	}
+
+	/// Start a websocket server listening for messages for the frontend.
+	#[cfg(feature = "debug_backend")]
+	pub fn start<A: ToSocketAddr>(addr: A) {
+		let server = TcpListener::bind(A).unwrap();
+        let editor = Self::new();
+
+		for stream in server.incoming() {
+            spawn (move || {
+                let mut websocket = accept(stream.unwrap()).unwrap();
+                loop {
+                    let msg = websocket.read_message().unwrap();
+                    println!("Editor: {:?}", msg);
+                }
+            });
+        }
 	}
 
 	pub fn handle_message<T: Into<Message>>(&mut self, message: T) -> Vec<FrontendMessage> {

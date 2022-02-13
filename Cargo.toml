@@ -3,6 +3,7 @@ members = [
 	"editor",
 	"graphene",
 	"proc-macros",
+	"debug_backend",
 	"frontend/wasm",
 ]
 

@@ -43,13 +43,14 @@ impl JsEditorHandle {
 		editor_handle
 	}
 
-	// Sends a message to the dispatcher in the Editor Backend
+	/// Sends a message to the dispatcher in the Editor Backend
 	fn dispatch<T: Into<Message>>(&self, message: T) {
 		// Process no further messages after a crash to avoid spamming the console
 		if EDITOR_HAS_CRASHED.load(Ordering::SeqCst) {
 			return;
 		}
 
+		#[cfg(not(feature = "debug_backend"))]
 		let responses = EDITOR_INSTANCES.with(|instances| {
 			instances
 				.borrow_mut()
@@ -58,13 +59,16 @@ impl JsEditorHandle {
 				.0
 				.handle_message(message.into())
 		});
+
+		#[cfg(feature = "debug_backend")]
+
 		for response in responses.into_iter() {
 			// Send each FrontendMessage to the JavaScript frontend
 			self.handle_response(response);
 		}
 	}
 
-	// Sends a FrontendMessage to JavaScript
+	/// Sends a FrontendMessage to JavaScript
 	fn handle_response(&self, message: FrontendMessage) {
 		let message_type = message.to_discriminant().local_name();
 
